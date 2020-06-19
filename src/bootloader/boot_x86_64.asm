@@ -7,7 +7,6 @@
 [org 0x7c00] ; reference - https://www.youtube.com/watch?v=l2wZf45ZcAg
 SECTION .text
 
-
 boot: ; reference - http://createyourownos.blogspot.com/
     xor ax, ax
     mov ds, ax
@@ -67,4 +66,83 @@ load:
     jmp load
 
 .size_buf:
-    mov 
+    mov [base.address], eax
+    mov [base.buffer], bx
+    mov [base.count], cx
+    mov [base.seg], dx
+
+    call print_base
+
+    mov dl, [disk]
+    mov si, base
+    mov ah, 0x42 ; 8 x 16 pixel buffer
+
+    int 0x13 ; bios interrupt call : 13 -> x86 interrupt
+             ; real mode handler - system call
+             ; https://m.blog.naver.com/PostView.nhn?blogId=cotkdrl1&logNo=10148806030&proxyReferer=https:%2F%2Fwww.google.co.kr%2F
+    jc error
+
+    ret
+
+print_base:
+    mov al, 13
+    call print_char
+
+    mov bx, [base.address + 2]
+    call hex_line
+
+    mov bx, [base.address]
+    call hex_line
+
+    mov al, '#'
+    call print_char
+
+    mov bx, [base.count]
+    call hex_line
+
+    mov al, ' '
+    call print_char
+
+    mov bx, [base.seg]
+    call hex_line
+
+    mov al, ':'
+    call print_char
+
+    mov bx, [base.buffer]
+    call hex_line
+
+    ret
+
+error:
+    call print_line
+    mov bh, 0
+    mov bl, ah
+    
+    call hex_line
+    mov al, ' '
+
+    call print_char
+    mov si, error_occured
+    call print
+    call print_line
+
+.halt:
+    cli
+    hlt
+    jmp .halt
+
+%include "print.asm"
+
+intro: db 'katana os loader', 0
+error_occured: "Couldn't Read Disk", 0
+fin: db "finished!", 0
+disk: db 0
+base:
+    db 0x10 ; hexadecimal
+    db 0
+
+.count: dw 0 ; reset count
+.buffer: dw 0 ; clear buffer
+.seg: dw 0 ; clear segment
+.address: dq 0 ; read lba spot
